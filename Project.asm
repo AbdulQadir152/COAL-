@@ -28,12 +28,18 @@ INCLUDE Irvine32.inc
     gnr BYTE "Genre: ", 0
     pby BYTE "Publication Year: ", 0
     borrowedBooks DWORD 5 DUP(0)
+    borrowInput BYTE "Enter ISBN(Index) of book you want to borrow: ", 0
+    noBookMatch BYTE "No book of this ISBN!", 0
     msgMemberAdded BYTE "Member added successfully!", 0
     msgBookAdded BYTE "Book added successfully!", 0
+    msgBorrowed BYTE "Book borrowed successfully!", 0
+    msgReturned BYTE "Book returned successfully!", 0
+    msgNoNeed BYTE "No books were borrowed!", 0
     noSpace BYTE "Library Full.", 0
     msgNoBooks BYTE "No books.", 0
     fullMember BYTE "Members Full.", 0
     msgNoMember BYTE "No member in the library.", 0
+    set DWORD 0
 
 .code
 main PROC
@@ -121,8 +127,6 @@ AddMember ENDP
 AddBook PROC
     ; Code to add a book
     push eax
-    cmp memberCount, 0
-    je NoMembers
     cmp bookCount, 5
     jge BookFull
     mov ecx, 5
@@ -168,12 +172,6 @@ AddBook PROC
         cmp ecx, 0
         je EndAddBook
         jmp TakingInput
-
-NoMembers:
-    mov edx, OFFSET msgNoMember
-    call WriteString
-    jmp EndAddBook
-
 BookFull:
     ; Handle case where the book array is full
     mov edx, OFFSET noSpace
@@ -186,7 +184,6 @@ EndAddBook:
 AddBook ENDP
 
 ShowInventory PROC
-    ; Code to show inventory
     push eax
     cmp memberCount, 0
     je NoMembers
@@ -246,8 +243,73 @@ EndShowInventory:
 ShowInventory ENDP
 
 BorrowBook PROC
-    push eax
     ; Code to borrow a book
+    push eax
+    cmp memberCount, 0
+    je NoMembers
+    cmp bookCount, 0
+    je NoBooks
+
+    mov ecx, 5
+    mov eax, 0
+    mov esi, OFFSET books
+PrintLoop:
+    call WriteDec
+    inc eax
+    mov edx, OFFSET dot
+    call WriteString
+    mov edx, esi
+    call WriteString
+    call crlf
+    add esi, 30
+    loop PrintLoop
+
+
+Borrowing:
+    mov edx, OFFSET borrowInput
+    call WriteString
+    call ReadDec
+    mov ecx, eax
+
+    ; Check if the index is valid
+    cmp ecx, 0
+    jl NoBook
+    cmp ecx, bookCount
+    jge NoBook
+
+    mov eax, borrowedBooks[ecx * 4]
+    cmp eax, 0
+    je NoBook
+
+    cmp eax, 2
+    je AlreadyBorrowed
+
+    ; Mark the book as borrowed
+    mov borrowedBooks[ecx * 4], 2 ; Mark as borrowed
+    mov edx, OFFSET msgBorrowed
+    call WriteString
+    jmp EndBorrowBook
+   
+
+AlreadyBorrowed:
+    mov edx, OFFSET msgNoBooks
+    call WriteString
+    jmp EndBorrowBook
+
+NoBook:
+    mov edx, OFFSET noBookMatch
+    call WriteString
+    jmp EndBorrowBook
+
+NoMembers:
+    mov edx, OFFSET msgNoMember
+    call WriteString
+    jmp EndBorrowBook
+
+NoBooks:
+    mov edx, OFFSET msgNoBooks
+    call WriteString
+
 EndBorrowBook:
     pop eax
     call DisplayMenu
@@ -255,8 +317,41 @@ EndBorrowBook:
 BorrowBook ENDP
 
 ReturnBook PROC
-    push eax
     ; Code to return a book
+    push eax
+    cmp memberCount, 0
+    je NoMembersReturn
+
+    mov ebx, 0
+    mov ecx, 5
+    Checking:
+    mov eax, borrowedBooks[ebx * 4]
+    cmp eax, 0
+    je continue
+    cmp eax, 1
+    je continue
+    cmp eax, 2
+    jne continue
+    mov borrowedBooks[ebx * 4], 0
+    mov edx, OFFSET msgReturned
+    call WriteString
+    call crlf
+    mov set, 1
+    continue:
+        inc ebx
+        loop Checking
+
+cmp set, 0
+jne EndReturnBook
+NoBooksBorrowed:
+    mov edx, OFFSET msgNoNeed
+    call WriteString
+    jmp EndReturnBook
+
+NoMembersReturn:
+    mov edx, OFFSET msgNoMember
+    call WriteString
+
 EndReturnBook:
     pop eax
     call DisplayMenu
